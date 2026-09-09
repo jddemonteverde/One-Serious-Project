@@ -1,3 +1,9 @@
+<!--
+PR title: OSP-XXX: <short description>
+Use the actual OSP ticket identifier followed by a colon and one space.
+Example: OSP-003: Define AI engineering instructions
+-->
+
 ## What Changed?
 
 Describe the implementation in concrete terms.
