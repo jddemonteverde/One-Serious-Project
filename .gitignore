@@ -1,0 +1,35 @@
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Local editor configuration and temporary files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local environment files; sanitized examples may be committed
+.env
+.env.*
+!.env.example
+
+# Python caches, coverage, and virtual environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Terraform/OpenTofu local data and state; commit .terraform.lock.hcl
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+*.auto.tfvars
+
+# Local logs and temporary files
+*.log
+tmp/
