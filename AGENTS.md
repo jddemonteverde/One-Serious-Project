@@ -211,6 +211,16 @@ Follow the [development workflow](docs/development/workflow.md) for the canonica
 
 ## 12. Pull Request Expectations
 
+Use this PR title format:
+
+```text
+OSP-XXX: <short description>
+```
+
+Use the actual OSP ticket identifier followed by a colon and one space. Keep the
+description concise and based on the actual Git diff. For example:
+`OSP-003: Define AI engineering instructions`.
+
 Use the [pull request template](.github/pull_request_template.md). Descriptions
 must cover:
 
