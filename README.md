@@ -40,6 +40,8 @@ one-serious-project/
 ├── scripts/              Automation scripts
 ├── tests/                Test assets
 ├── docs/                 Architecture and operational documentation
+│   ├── roadmap.md
+│   ├── development/
 │   ├── architecture/
 │   ├── adr/
 │   ├── runbooks/
@@ -64,6 +66,10 @@ Empty directories contain `.gitkeep` files so Git can preserve the structure.
 The project is intentionally built brick by brick. Planned components will only
 be introduced in their appropriate milestones. Setup steps and development
 commands will be documented as they are added.
+
+See the [project roadmap](docs/roadmap.md) for planned releases and bootstrap
+tickets, and the [development workflow](docs/development/workflow.md) for branch
+and pull request practices.
 
 With Make installed, list the available commands:
 
