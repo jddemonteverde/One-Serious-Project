@@ -71,6 +71,10 @@ See the [project roadmap](docs/roadmap.md) for planned releases and bootstrap
 tickets, and the [development workflow](docs/development/workflow.md) for branch
 and pull request practices.
 
+See the [Architecture Overview](docs/architecture/overview.md) for current and
+planned states, and [Architecture Decisions](docs/adr/001-monorepo.md) for the
+accepted monorepo strategy.
+
 With Make installed, list the available commands:
 
 ```sh
