@@ -21,9 +21,14 @@ The target stack below is planned; these technologies are not yet implemented:
 - Python / FastAPI and PostgreSQL
 - Docker, GitHub Actions, and GitHub Container Registry
 - kind, Kubernetes, Helm, and Argo CD
-- Terraform/OpenTofu and AWS
+- Terraform, with AWS as the first cloud target
 - Prometheus, Grafana, and Loki
 - k6 and Trivy
+
+Cloud infrastructure will follow a working local platform. The first cloud
+implementation will focus on AWS; the long-term goal is to make the project
+deployable to a choice of AWS, Azure, GCP, or DigitalOcean. Support for the
+additional clouds will be introduced through future tickets.
 
 ## Repository structure
 
@@ -72,8 +77,9 @@ tickets, and the [development workflow](docs/development/workflow.md) for branch
 and pull request practices.
 
 See the [Architecture Overview](docs/architecture/overview.md) for current and
-planned states, and [Architecture Decisions](docs/adr/001-monorepo.md) for the
-accepted monorepo strategy.
+planned states. Accepted architecture decisions cover the
+[monorepo strategy](docs/adr/001-monorepo.md) and
+[Terraform and cloud targets](docs/adr/002-terraform-and-cloud-targets.md).
 
 With Make installed, list the available commands:
 

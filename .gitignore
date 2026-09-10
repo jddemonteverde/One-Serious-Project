@@ -23,7 +23,7 @@ htmlcov/
 .venv/
 venv/
 
-# Terraform/OpenTofu local data and state; commit .terraform.lock.hcl
+# Terraform local data and state; commit .terraform.lock.hcl
 .terraform/
 *.tfstate
 *.tfstate.*

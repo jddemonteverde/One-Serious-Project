@@ -27,8 +27,9 @@ What exists today:
 - Project documentation, a roadmap, and engineering guidance in `README.md`,
   `AGENTS.md`, and `CLAUDE.md`.
 - Issue and pull request templates, plus a documented development workflow.
-- This architecture overview and the accepted
-  [monorepo decision](../adr/001-monorepo.md).
+- This architecture overview and accepted decisions for the
+  [monorepo](../adr/001-monorepo.md) and
+  [Terraform and cloud targets](../adr/002-terraform-and-cloud-targets.md).
 
 The application, infrastructure, deployment, observability, automation, and
 test directories contain placeholders. `.github/workflows/` also contains only
@@ -43,41 +44,89 @@ are planned. The developer and GitHub repository provide their existing
 starting point. Components will be introduced incrementally through the
 [project milestones](../roadmap.md).
 
+The views below each show one part of the target architecture. Read each
+diagram from top to bottom; repeated components refer to the same system.
+
+### 3.1 Application Runtime — Planned
+
+The FastAPI application handles API requests and stores data in PostgreSQL.
+Kubernetes will run the application, first locally with kind and later on AWS.
+PostgreSQL hosting remains a decision for a later ticket.
+
 ```mermaid
 flowchart TD
-  developer["Developer"] -->|Push changes| repository["GitHub repository"]
-  repository -->|Trigger validation and builds| actions["GitHub Actions"]
-  actions -->|Publish images| registry["GitHub Container Registry"]
-  registry -.->|Image references| gitops["GitOps configuration"]
-  repository -->|Version desired state| gitops
+  client["API client"] -->|HTTP requests| application["FastAPI on Kubernetes"]
+  application -->|Read and write data| postgres[("PostgreSQL")]
+```
+
+### 3.2 Build and Deployment — Planned
+
+A developer pushes changes to the monorepo. One path builds and publishes
+container images; the other supplies the desired deployment configuration.
+Both paths meet at the Kubernetes cluster.
+
+```mermaid
+flowchart TD
+  repository["GitHub monorepo"] -->|Application code| actions["GitHub Actions"]
+  actions -->|Validate and publish| registry["GHCR"]
+  repository -->|Deployment files| gitops["GitOps configuration"]
   gitops -->|Desired state| argocd["Argo CD"]
   argocd -->|Reconcile workloads| kubernetes["Kubernetes"]
   registry -->|Container images| kubernetes
-  kubernetes -->|Run workload| application["FastAPI application"]
-  application -->|Read and write data| postgres["PostgreSQL"]
-
-  repository -->|Infrastructure definitions| iac["Terraform / OpenTofu"]
-  iac -->|Provision cloud resources| aws["AWS"]
-  aws -->|Host eventual cloud runtime| kubernetes
-
-  application -->|Metrics| prometheus["Prometheus"]
-  kubernetes -->|Platform metrics| prometheus
-  application -->|Collected logs| loki["Loki"]
-  kubernetes -->|Collected logs| loki
-  prometheus -->|Metrics data source| grafana["Grafana"]
-  loki -->|Log data source| grafana
 ```
 
-GitOps configuration is planned to live in this monorepo and reference
-published images. The dotted link represents an image reference stored in Git;
-the mechanism for updating those references remains a decision for a later
-ticket. Argo CD will reconcile the desired state, and Kubernetes will retrieve
-the referenced images from the registry.
+GitHub Actions validates code, builds images, and publishes them to GitHub
+Container Registry (GHCR). GitOps configuration lives in the same monorepo and
+records the desired workloads and image references, using raw Kubernetes
+resources first and Helm charts later. Argo CD reconciles that configuration;
+Kubernetes pulls the referenced images from GHCR. The mechanism for updating
+image references in Git remains a decision for a later ticket.
 
-Kubernetes will be introduced locally before cloud infrastructure. The AWS
-relationship represents eventual cloud hosting. Specific AWS services,
-PostgreSQL hosting, the Terraform/OpenTofu tool choice, and log-collection
-tooling remain future architecture decisions.
+### 3.3 Cloud Infrastructure — Planned
+
+Terraform is the selected Infrastructure as Code tool. AWS is the first cloud
+target, introduced after the local platform is ready.
+
+```mermaid
+flowchart TD
+  terraform["Terraform"] -->|Provision resources| aws["AWS infrastructure"]
+  aws -->|Host runtime| kubernetes["Kubernetes"]
+```
+
+Terraform definitions will live in `infrastructure/`. Terraform provisions
+the cloud foundation; Argo CD manages the application deployments shown in
+the delivery view. Specific AWS services and the Kubernetes hosting model
+remain decisions for later tickets.
+
+The long-term goal is to make the project deployable to a choice of AWS, Azure,
+GCP, or DigitalOcean. The rollout is incremental:
+
+| Stage | Deployment target | Scope |
+| --- | --- | --- |
+| Local platform | kind | Establish Kubernetes locally before cloud infrastructure. |
+| First cloud implementation | AWS | Focus of v0.8.0 — Cloud Infrastructure, using Terraform. |
+| Future cloud targets | Azure, GCP, DigitalOcean | Add deployment support through later tickets; no release assigned yet. |
+
+All deployment targets remain planned. Each additional cloud will need its
+own infrastructure configuration and validation. See
+[ADR-002](../adr/002-terraform-and-cloud-targets.md) for the tool and cloud
+rollout decision.
+
+### 3.4 Observability — Planned
+
+Application and platform telemetry feed two data sources. Grafana uses both
+to help inspect system behavior.
+
+```mermaid
+flowchart TD
+  workloads["FastAPI and Kubernetes"] -->|Metrics| prometheus["Prometheus"]
+  workloads -->|Collected logs| loki["Loki"]
+  prometheus -->|Metrics data| grafana["Grafana"]
+  loki -->|Log data| grafana
+```
+
+The arrows show telemetry flow. Metrics collection details and log-collection
+tooling will be defined in later tickets.
 
 ## 4. Architecture Layers
 
@@ -111,10 +160,12 @@ raw Kubernetes resources.
 
 ### Infrastructure
 
-**Planned:** Terraform/OpenTofu and AWS.
+**Planned:** Terraform, with AWS as the first cloud target. Azure, GCP, and
+DigitalOcean are future deployment targets.
 
 **Purpose:** Reproducible cloud infrastructure introduced after the local
-platform is ready.
+platform is ready. Additional cloud targets will be implemented incrementally
+under the [Terraform and cloud rollout decision](../adr/002-terraform-and-cloud-targets.md).
 
 ### Observability
 
@@ -160,12 +211,15 @@ GitOps
     ↓
 Observability
     ↓
-Cloud Infrastructure
+Cloud Infrastructure (Terraform, AWS first)
     ↓
 Security and Reliability
     ↓
 Production Simulation
 ```
+
+Azure, GCP, and DigitalOcean deployment support is a longer-term goal beyond
+the initial AWS cloud milestone; releases for those targets are not assigned.
 
 Update this architecture documentation as each stage becomes real. Move
 capabilities into the current architecture only after their implementation
