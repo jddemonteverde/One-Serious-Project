@@ -11,7 +11,7 @@ import logging
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from app.config import Settings, load_settings
+from habit_tracker.config import Settings, load_settings
 
 API_VERSION = "0.1.0"
 
