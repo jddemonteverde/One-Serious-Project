@@ -1,0 +1,4 @@
+# Application runtime dependencies for the One Serious Project API.
+# Pinned so local, container, and CI environments resolve the same versions.
+fastapi==0.128.8
+uvicorn[standard]==0.39.0

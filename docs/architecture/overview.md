@@ -9,21 +9,29 @@ about implemented capabilities must be supported by repository evidence.
 
 ## 2. Current Architecture
 
-The repository is currently in **Epic 0 — Bootstrap**. No runtime application
-or cloud infrastructure is implemented in the repository. The current
-architecture is an engineering workspace and workflow:
+The repository is in **v0.1.0 — Application MVP**. Epic 0 — Bootstrap is
+complete, and the first runtime component exists: a FastAPI service that a
+developer runs locally with Uvicorn. There is no datastore, container, pipeline,
+or cloud infrastructure yet.
 
 ```mermaid
 flowchart TD
-  developer["Developer"] --> repository["Git repository"]
+  developer["Developer"] -->|make run| application["FastAPI service (local process)"]
+  developer --> repository["Git repository"]
+  repository -->|Application source| application
   repository --> workflow["Project structure and engineering workflow"]
 ```
 
 What exists today:
 
+- A FastAPI application in `app/` with a `GET /` endpoint that returns the
+  service name, running state, and environment name.
+- Application configuration read from `APP_ENV`, `APP_HOST`, `APP_PORT`, and
+  `LOG_LEVEL`, with pinned runtime dependencies in `app/requirements.txt`.
+- A `Makefile` providing `make help`, `make install`, and `make run`.
 - A monorepo directory structure with reserved component directories.
-- Shared repository configuration in `.editorconfig` and `.gitignore`, a
-  license, and a `Makefile` that provides only `make help`.
+- Shared repository configuration in `.editorconfig` and `.gitignore`, and a
+  license.
 - Project documentation, a roadmap, and engineering guidance in `README.md`,
   `AGENTS.md`, and `CLAUDE.md`.
 - Issue and pull request templates, plus a documented development workflow.
@@ -31,11 +39,14 @@ What exists today:
   [monorepo](../adr/001-monorepo.md) and
   [Terraform and cloud targets](../adr/002-terraform-and-cloud-targets.md).
 
-The application, infrastructure, deployment, observability, automation, and
-test directories contain placeholders. `.github/workflows/` also contains only
-a placeholder; CI jobs have not been implemented. The documented
-[development workflow](../development/workflow.md) defers required CI checks
-and branch protection until CI is available.
+The service holds no state, exposes no domain resource, and has no database,
+health, metrics, or automated test coverage; those are the remaining Application
+MVP tickets. Logging currently uses the standard library default format, not the
+structured format planned for log aggregation. The infrastructure, deployment,
+observability, automation, and test directories contain placeholders.
+`.github/workflows/` also contains only a placeholder; CI jobs have not been
+implemented. The documented [development workflow](../development/workflow.md)
+defers required CI checks and branch protection until CI is available.
 
 ## 3. Target Architecture — Planned
 
@@ -228,6 +239,6 @@ the target direction aligned with the evolving roadmap.
 
 ## 6. Current Milestone
 
-The current milestone is **Epic 0 — Bootstrap**, consistent with the
+The current milestone is **v0.1.0 — Application MVP**, consistent with the
 [README](../../README.md) and [roadmap](../roadmap.md). The next planned release
-milestone is **v0.1.0 — Application MVP**.
+milestone is **v0.2.0 — Containers**.
