@@ -12,7 +12,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from habit_tracker import habits
 from habit_tracker.config import Settings, load_settings
+from habit_tracker.storage import HabitStore
 
 API_VERSION = "0.1.0"
 
@@ -49,6 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version=API_VERSION,
     )
     application.state.settings = resolved
+    application.state.habit_store = HabitStore()
 
     if resolved.cors_allowed_origins:
         application.add_middleware(
@@ -67,6 +70,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             status="running",
             environment=resolved.app_env,
         )
+
+    application.include_router(habits.router)
 
     logger.info(
         "Application created service=%s environment=%s",
