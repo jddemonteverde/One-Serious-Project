@@ -9,16 +9,20 @@ about implemented capabilities must be supported by repository evidence.
 
 ## 2. Current Architecture
 
-The repository is in **v0.1.0 — Application MVP**. Epic 0 — Bootstrap is
-complete, and the first runtime component exists: a FastAPI service that a
-developer runs locally with Uvicorn. There is no datastore, container, pipeline,
-or cloud infrastructure yet.
+The repository is in **v0.1.0 — Application MVP**, with the first Web Frontend
+ticket also delivered. Epic 0 — Bootstrap is complete, and two runtime
+components exist: a FastAPI backend and a React frontend, both run locally by a
+developer. There is no datastore, container, pipeline, or cloud infrastructure
+yet.
 
 ```mermaid
 flowchart TD
-  developer["Developer"] -->|make run| application["FastAPI service (local process)"]
+  developer["Developer"] -->|make run| backend["FastAPI backend (local process)"]
+  developer -->|make frontend-dev| frontend["React frontend (local dev server)"]
+  frontend -->|Proxied API requests| backend
   developer --> repository["Git repository"]
-  repository -->|Application source| application
+  repository -->|Application source| backend
+  repository -->|Application source| frontend
   repository --> workflow["Project structure and engineering workflow"]
 ```
 
@@ -27,11 +31,16 @@ What exists today:
 - A FastAPI backend at `app/habit-tracker/backend/`, whose Python package is
   `habit_tracker`, with a `GET /` endpoint that returns the service name,
   running state, and environment name.
-- Application configuration read from `APP_ENV`, `APP_HOST`, `APP_PORT`, and
-  `LOG_LEVEL`, with pinned runtime dependencies in
+- Backend configuration read from `APP_ENV`, `APP_HOST`, `APP_PORT`,
+  `LOG_LEVEL`, and `CORS_ALLOWED_ORIGINS`, with pinned runtime dependencies in
   `app/habit-tracker/backend/requirements.txt`.
-- A `Makefile` providing `make help`, `make install`, and `make run`, with an
-  `APP` variable selecting which application under `app/` the commands act on.
+- A React and TypeScript frontend at `app/habit-tracker/frontend/` that reads
+  and displays the backend's service status, with pinned dependencies and a
+  development-server proxy that keeps API calls same-origin.
+- A `Makefile` providing `make help`, `make install`, `make run`, and the
+  `frontend-install`, `frontend-dev`, `frontend-build`, and `frontend-lint`
+  commands, with an `APP` variable selecting which application under `app/` the
+  commands act on.
 - A monorepo directory structure with reserved component directories.
 - Shared repository configuration in `.editorconfig` and `.gitignore`, and a
   license.
@@ -44,9 +53,12 @@ What exists today:
   [habit tracker domain](../adr/003-habit-tracker-domain.md), and the
   [frontend service and application layout](../adr/004-frontend-service-and-application-layout.md).
 
-The service holds no state and exposes no domain resource. The habit tracker
-domain, its database, health checks, metrics, and automated test coverage are
-the remaining Application MVP tickets, and no frontend exists yet. Logging currently uses the standard library default format, not the
+The backend holds no state and exposes no domain resource, and the frontend has
+no habit features. The habit tracker domain, its database, health checks,
+metrics, and automated test coverage are the remaining Application MVP tickets;
+the habit and gamification interfaces and the frontend test suite are the
+remaining Web Frontend tickets. The frontend has no automated tests, and the
+backend has no linter. Logging currently uses the standard library default format, not the
 structured format planned for log aggregation. The infrastructure, deployment,
 observability, automation, and test directories contain placeholders.
 `.github/workflows/` also contains only a placeholder; CI jobs have not been
