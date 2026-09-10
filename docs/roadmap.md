@@ -12,9 +12,20 @@ GitHub milestones are managed separately through GitHub.
 - v0.5.0 — Helm
 - v0.6.0 — GitOps
 - v0.7.0 — Observability
-- v0.8.0 — Cloud Infrastructure
+- v0.8.0 — Cloud Infrastructure (Terraform, AWS first)
 - v0.9.0 — Security and Reliability
 - v1.0.0 — Production Simulation
+
+## Cloud deployment direction
+
+Terraform is the selected Infrastructure as Code tool. The local platform
+milestones come first; v0.8.0 will focus on AWS as the first cloud deployment
+target.
+
+The long-term goal is deployment to a choice of AWS, Azure, GCP, or
+DigitalOcean. Azure, GCP, and DigitalOcean support will be scoped in future
+tickets, with no release assigned yet. See
+[ADR-002](adr/002-terraform-and-cloud-targets.md) for the decision and tradeoffs.
 
 ## Bootstrap
 
