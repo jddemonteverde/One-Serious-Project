@@ -31,6 +31,8 @@ What exists today:
 - A FastAPI backend at `app/habit-tracker/backend/`, whose Python package is
   `habit_tracker`, with a `GET /` endpoint that returns the service name,
   running state, and environment name.
+- A habits API providing full CRUD with request validation, backed by an
+  in-memory store that is lost when the service restarts.
 - Backend configuration read from `APP_ENV`, `APP_HOST`, `APP_PORT`,
   `LOG_LEVEL`, and `CORS_ALLOWED_ORIGINS`, with pinned runtime dependencies in
   `app/habit-tracker/backend/requirements.txt`.
@@ -53,12 +55,13 @@ What exists today:
   [habit tracker domain](../adr/003-habit-tracker-domain.md), and the
   [frontend service and application layout](../adr/004-frontend-service-and-application-layout.md).
 
-The backend holds no state and exposes no domain resource, and the frontend has
-no habit features. The habit tracker domain, its database, health checks,
-metrics, and automated test coverage are the remaining Application MVP tickets;
-the habit and gamification interfaces and the frontend test suite are the
-remaining Web Frontend tickets. The frontend has no automated tests, and the
-backend has no linter. Logging currently uses the standard library default format, not the
+The backend holds no durable state: habits exist only in the running process,
+so a restart loses them. The frontend has no habit features. PostgreSQL
+persistence, migrations, completions, streaks, points, badges, health checks,
+structured logging, metrics, and automated test coverage are the remaining
+Application MVP tickets; the habit and gamification interfaces and the frontend
+test suite are the remaining Web Frontend tickets. Neither component has
+automated tests, and the backend has no linter. Logging currently uses the standard library default format, not the
 structured format planned for log aggregation. The infrastructure, deployment,
 observability, automation, and test directories contain placeholders.
 `.github/workflows/` also contains only a placeholder; CI jobs have not been
