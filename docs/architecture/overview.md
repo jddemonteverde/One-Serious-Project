@@ -24,11 +24,14 @@ flowchart TD
 
 What exists today:
 
-- A FastAPI application in `app/` with a `GET /` endpoint that returns the
-  service name, running state, and environment name.
+- A FastAPI backend at `app/habit-tracker/backend/`, whose Python package is
+  `habit_tracker`, with a `GET /` endpoint that returns the service name,
+  running state, and environment name.
 - Application configuration read from `APP_ENV`, `APP_HOST`, `APP_PORT`, and
-  `LOG_LEVEL`, with pinned runtime dependencies in `app/requirements.txt`.
-- A `Makefile` providing `make help`, `make install`, and `make run`.
+  `LOG_LEVEL`, with pinned runtime dependencies in
+  `app/habit-tracker/backend/requirements.txt`.
+- A `Makefile` providing `make help`, `make install`, and `make run`, with an
+  `APP` variable selecting which application under `app/` the commands act on.
 - A monorepo directory structure with reserved component directories.
 - Shared repository configuration in `.editorconfig` and `.gitignore`, and a
   license.
@@ -36,12 +39,14 @@ What exists today:
   `AGENTS.md`, and `CLAUDE.md`.
 - Issue and pull request templates, plus a documented development workflow.
 - This architecture overview and accepted decisions for the
-  [monorepo](../adr/001-monorepo.md) and
-  [Terraform and cloud targets](../adr/002-terraform-and-cloud-targets.md).
+  [monorepo](../adr/001-monorepo.md),
+  [Terraform and cloud targets](../adr/002-terraform-and-cloud-targets.md), the
+  [habit tracker domain](../adr/003-habit-tracker-domain.md), and the
+  [frontend service and application layout](../adr/004-frontend-service-and-application-layout.md).
 
-The service holds no state, exposes no domain resource, and has no database,
-health, metrics, or automated test coverage; those are the remaining Application
-MVP tickets. Logging currently uses the standard library default format, not the
+The service holds no state and exposes no domain resource. The habit tracker
+domain, its database, health checks, metrics, and automated test coverage are
+the remaining Application MVP tickets, and no frontend exists yet. Logging currently uses the standard library default format, not the
 structured format planned for log aggregation. The infrastructure, deployment,
 observability, automation, and test directories contain placeholders.
 `.github/workflows/` also contains only a placeholder; CI jobs have not been
@@ -60,15 +65,23 @@ diagram from top to bottom; repeated components refer to the same system.
 
 ### 3.1 Application Runtime — Planned
 
-The FastAPI application handles API requests and stores data in PostgreSQL.
-Kubernetes will run the application, first locally with kind and later on AWS.
-PostgreSQL hosting remains a decision for a later ticket.
+The habit tracker runs as two services. A React frontend serves the browser and
+calls the FastAPI backend, which stores data in PostgreSQL. Kubernetes will run
+both, first locally with kind and later on AWS. PostgreSQL hosting remains a
+decision for a later ticket.
 
 ```mermaid
 flowchart TD
-  client["API client"] -->|HTTP requests| application["FastAPI on Kubernetes"]
-  application -->|Read and write data| postgres[("PostgreSQL")]
+  browser["Browser"] -->|Page requests| frontend["React frontend on Kubernetes"]
+  browser -->|API requests| backend["FastAPI backend on Kubernetes"]
+  frontend -->|Served assets| browser
+  backend -->|Read and write data| postgres[("PostgreSQL")]
 ```
+
+Each service is deployed and scaled independently. Routing browser traffic to
+the frontend and API traffic to the backend is an ingress concern decided in the
+Kubernetes milestone. See
+[ADR-004](../adr/004-frontend-service-and-application-layout.md).
 
 ### 3.2 Build and Deployment — Planned
 
@@ -78,7 +91,7 @@ Both paths meet at the Kubernetes cluster.
 
 ```mermaid
 flowchart TD
-  repository["GitHub monorepo"] -->|Application code| actions["GitHub Actions"]
+  repository["GitHub monorepo"] -->|Backend and frontend code| actions["GitHub Actions"]
   actions -->|Validate and publish| registry["GHCR"]
   repository -->|Deployment files| gitops["GitOps configuration"]
   gitops -->|Desired state| argocd["Argo CD"]
@@ -148,7 +161,16 @@ All layers below describe planned capabilities.
 **Planned:** Python, FastAPI, and PostgreSQL.
 
 **Purpose:** Provide a realistic workload for demonstrating platform
-engineering and application delivery.
+engineering and application delivery. The domain is a personal gamified habit
+tracker; see [ADR-003](../adr/003-habit-tracker-domain.md).
+
+### Frontend
+
+**Planned:** React and Vite, deployed as a separate service.
+
+**Purpose:** Give the habit tracker a usable interface and give the platform
+milestones a realistic multi-service topology to route, deploy, observe, and
+roll back independently.
 
 ### Build and Delivery
 
@@ -210,6 +232,8 @@ Bootstrap
     ↓
 Application MVP
     ↓
+Web Frontend
+    ↓
 Containers
     ↓
 CI
@@ -241,4 +265,4 @@ the target direction aligned with the evolving roadmap.
 
 The current milestone is **v0.1.0 — Application MVP**, consistent with the
 [README](../../README.md) and [roadmap](../roadmap.md). The next planned release
-milestone is **v0.2.0 — Containers**.
+milestone is **v0.1.5 — Web Frontend**.

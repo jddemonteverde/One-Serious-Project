@@ -32,9 +32,11 @@ progress. Verify completion from repository and GitHub evidence before using
 These are working conventions and do not imply that status transitions are
 automated.
 
-Application MVP tickets (OSP-005 through OSP-012) use the
-`v0.1.0 - Application MVP` GitHub milestone. Bootstrap tickets do not use that
-release milestone. Planned releases are listed in the [roadmap](../roadmap.md).
+Application MVP tickets use the `v0.1.0 - Application MVP` GitHub milestone, and
+Web Frontend tickets use `v0.1.5 - Web Frontend`. Bootstrap tickets do not use a
+release milestone. Ticket numbers reflect creation order rather than
+implementation order; the [roadmap](../roadmap.md) lists each epic's tickets in
+the order they are intended to be implemented.
 
 ## Main branch policy
 

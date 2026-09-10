@@ -10,11 +10,17 @@ response, and cost awareness.
 
 Current milestone: v0.1.0 — Application MVP
 
-Epic 0 — Bootstrap is complete. The repository now contains a runnable FastAPI
-service that starts locally, reports its identity and running state on `GET /`,
-and reads its configuration from environment variables. Persistence, health
+Epic 0 — Bootstrap is complete. The application is a personal gamified habit
+tracker: habits, daily completions, streaks, points, and badges. It is
+deliberately small, because its purpose is to provide a realistic workload for
+the platform milestones.
+
+The repository currently contains a runnable FastAPI backend that starts
+locally, reports its identity and running state on `GET /`, and reads its
+configuration from environment variables. The habit domain, persistence, health
 checks, logging, metrics, and automated tests are the remaining Application MVP
-tickets. No container, CI pipeline, or platform component is implemented yet.
+tickets. The React frontend arrives in `v0.1.5 — Web Frontend`. No container, CI
+pipeline, or platform component is implemented yet.
 
 ## Technology stack
 
@@ -24,6 +30,7 @@ Implemented:
 
 Planned; not yet implemented:
 
+- React and Vite for the web frontend
 - PostgreSQL and Alembic
 - Docker, GitHub Actions, and GitHub Container Registry
 - kind, Kubernetes, Helm, and Argo CD
@@ -38,15 +45,21 @@ additional clouds will be introduced through future tickets.
 
 ## Repository structure
 
-Directories reserve space for the planned components and documentation:
+`app/` holds applications, each in its own directory with separate backend and
+frontend components. The remaining directories reserve space for the planned
+platform components and documentation:
 
 ```text
 one-serious-project/
-├── app/                  Application source
-│   ├── __main__.py       Local server entry point
-│   ├── main.py           FastAPI application and routes
-│   ├── config.py         Environment-driven settings
-│   └── requirements.txt  Pinned runtime dependencies
+├── app/                          Applications
+│   └── habit-tracker/
+│       ├── backend/              FastAPI service
+│       │   ├── habit_tracker/    Python package
+│       │   │   ├── __main__.py   Local server entry point
+│       │   │   ├── main.py       FastAPI application and routes
+│       │   │   └── config.py     Environment-driven settings
+│       │   └── requirements.txt  Pinned runtime dependencies
+│       └── frontend/             React application (v0.1.5)
 ├── infrastructure/       Infrastructure as Code
 ├── kubernetes/           Kubernetes configuration
 ├── helm/                 Helm charts
@@ -75,6 +88,9 @@ one-serious-project/
 ```
 
 Empty directories contain `.gitkeep` files so Git can preserve the structure.
+The directory `habit-tracker` cannot itself be a Python package because of the
+hyphen, so the importable package `habit_tracker` lives inside `backend/`. See
+[ADR-004](docs/adr/004-frontend-service-and-application-layout.md).
 
 ## Local development
 
@@ -85,15 +101,16 @@ Empty directories contain `.gitkeep` files so Git can preserve the structure.
 
 ### Install
 
-Create the local virtual environment in `.venv` and install the pinned
-application dependencies:
+Create the application's virtual environment in
+`app/habit-tracker/backend/.venv` and install its pinned dependencies:
 
 ```sh
 make install
 ```
 
-The Makefile uses `python3.12` by default. Override it if your interpreter is
-installed elsewhere:
+Commands act on the `habit-tracker` application by default. Select another
+application with `APP=<name>`, and override the interpreter with `PYTHON=<path>`
+if `python3.12` is installed elsewhere:
 
 ```sh
 make install PYTHON=/path/to/python3.12
@@ -158,8 +175,10 @@ and pull request practices.
 
 See the [Architecture Overview](docs/architecture/overview.md) for current and
 planned states. Accepted architecture decisions cover the
-[monorepo strategy](docs/adr/001-monorepo.md) and
-[Terraform and cloud targets](docs/adr/002-terraform-and-cloud-targets.md).
+[monorepo strategy](docs/adr/001-monorepo.md),
+[Terraform and cloud targets](docs/adr/002-terraform-and-cloud-targets.md),
+the [habit tracker domain](docs/adr/003-habit-tracker-domain.md), and the
+[frontend service and application layout](docs/adr/004-frontend-service-and-application-layout.md).
 
 With Make installed, list the available commands:
 
