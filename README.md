@@ -15,13 +15,15 @@ tracker: habits, daily completions, streaks, points, and badges. It is
 deliberately small, because its purpose is to provide a realistic workload for
 the platform milestones.
 
-The repository currently contains a runnable FastAPI backend that starts
-locally, reports its identity and running state on `GET /`, and reads its
-configuration from environment variables, plus a React frontend shell that
-reads and displays that status. The habit domain, persistence, health checks,
-logging, metrics, and automated tests are the remaining Application MVP
-tickets, and the frontend has no habit features yet. No container, CI pipeline,
-or platform component is implemented yet.
+The backend serves a habits API with full CRUD and request validation, and
+reads its configuration from environment variables. The frontend is currently a
+shell that displays the backend's service status.
+
+Habits are held in memory only, so they are lost when the service restarts:
+PostgreSQL persistence is the next ticket. Completions, streaks, points, badges,
+health checks, structured logging, metrics, and automated tests are the
+remaining Application MVP tickets, and the frontend has no habit features yet.
+No container, CI pipeline, or platform component is implemented yet.
 
 ## Technology stack
 
@@ -171,6 +173,43 @@ APP_ENV=staging APP_PORT=9001 LOG_LEVEL=DEBUG make run
 
 Database configuration is not part of this milestone yet; it arrives with
 PostgreSQL persistence.
+
+### Habits API
+
+A habit is something to do on a recurring cadence, worth points when completed.
+Completions, streaks, points, and badges arrive in later tickets.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/habits` | Create a habit. Returns `201`. |
+| `GET` | `/habits` | List every habit, oldest first. |
+| `GET` | `/habits/{id}` | Return one habit. |
+| `PUT` | `/habits/{id}` | Replace a habit's fields. |
+| `DELETE` | `/habits/{id}` | Delete a habit. Returns `204`. |
+
+Habit fields:
+
+| Field | Required | Default | Rules |
+| --- | --- | --- | --- |
+| `name` | Yes | — | 1 to 100 characters, not blank once trimmed. |
+| `description` | No | `null` | Up to 500 characters. A blank value is stored as `null`. |
+| `cadence` | No | `daily` | One of `daily` or `weekly`. |
+| `points_per_completion` | No | `10` | Between 1 and 100. |
+| `is_archived` | No | `false` | Hides a habit without deleting it. |
+
+`id` and `created_at` are assigned by the server. `PUT` is a full replacement,
+so a field the client omits returns to its default rather than keeping its
+previous value. Unknown identifiers return `404`; invalid input returns `422`
+with the offending field named.
+
+```sh
+curl -X POST http://localhost:8000/habits \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Read 20 pages","cadence":"daily","points_per_completion":10}'
+```
+
+**Habits are stored in memory only.** They are lost when the service restarts.
+PostgreSQL persistence replaces this in the next ticket.
 
 ## Frontend development
 
