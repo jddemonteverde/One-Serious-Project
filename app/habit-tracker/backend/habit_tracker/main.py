@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from habit_tracker.config import Settings, load_settings
@@ -48,6 +49,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version=API_VERSION,
     )
     application.state.settings = resolved
+
+    if resolved.cors_allowed_origins:
+        application.add_middleware(
+            CORSMiddleware,
+            allow_origins=list(resolved.cors_allowed_origins),
+            allow_credentials=False,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     @application.get("/", response_model=ServiceStatus, tags=["service"])
     def read_service_status() -> ServiceStatus:
