@@ -30,6 +30,12 @@ venv/
 terraform.tfvars
 *.auto.tfvars
 
+# Node dependencies, build output, and caches
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
 # Local logs and temporary files
 *.log
 tmp/
