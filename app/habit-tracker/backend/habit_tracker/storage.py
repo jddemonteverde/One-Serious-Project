@@ -1,71 +1,103 @@
-"""In-memory storage for habits.
+"""Habit persistence backed by PostgreSQL.
 
-This is deliberately temporary. PostgreSQL persistence replaces it in a later
-ticket, so state here is process-local and is lost when the service restarts.
+The repository returns Pydantic schemas rather than ORM instances so that the
+routes and response models are unaffected by how habits are stored.
 """
 
 from __future__ import annotations
 
-import threading
-from datetime import UTC, datetime
-from itertools import count
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
+from habit_tracker import models
+from habit_tracker.database import get_default_user
 from habit_tracker.schemas import Habit, HabitCreate, HabitUpdate
 
 
-class HabitStore:
-    """A thread-safe collection of habits.
+def _to_schema(record: models.Habit) -> Habit:
+    return Habit.model_validate(
+        {
+            "id": record.id,
+            "name": record.name,
+            "description": record.description,
+            "cadence": record.cadence,
+            "points_per_completion": record.points_per_completion,
+            "is_archived": record.is_archived,
+            "created_at": record.created_at,
+        }
+    )
 
-    FastAPI runs synchronous endpoints in a worker threadpool, so this store can
-    be reached from several threads at once. The lock keeps the identifier
-    counter and the mapping consistent with each other.
+
+class HabitRepository:
+    """Reads and writes habits for the current user.
+
+    One instance is built per request and commits its own writes, so a failed
+    request leaves nothing partially applied.
     """
 
-    def __init__(self) -> None:
-        self._habits: dict[int, Habit] = {}
-        self._next_id = count(1)
-        self._lock = threading.Lock()
+    def __init__(self, session: Session) -> None:
+        self._session = session
+        self._owner = get_default_user(session)
+
+    def _select_owned(self) -> select:
+        return select(models.Habit).where(models.Habit.user_id == self._owner.id)
+
+    def _find(self, habit_id: int) -> models.Habit | None:
+        return self._session.scalars(
+            self._select_owned().where(models.Habit.id == habit_id)
+        ).first()
 
     def list(self) -> list[Habit]:
         """Return every habit, oldest first."""
-        with self._lock:
-            return sorted(self._habits.values(), key=lambda habit: habit.id)
+        records = self._session.scalars(
+            self._select_owned().order_by(models.Habit.id)
+        ).all()
+        return [_to_schema(record) for record in records]
 
     def get(self, habit_id: int) -> Habit | None:
         """Return one habit, or None when no habit has that identifier."""
-        with self._lock:
-            return self._habits.get(habit_id)
+        record = self._find(habit_id)
+        return None if record is None else _to_schema(record)
 
     def create(self, payload: HabitCreate) -> Habit:
         """Store a new habit and return it."""
-        with self._lock:
-            habit = Habit(
-                id=next(self._next_id),
-                created_at=datetime.now(UTC),
-                **payload.model_dump(),
-            )
-            self._habits[habit.id] = habit
-            return habit
+        record = models.Habit(
+            user_id=self._owner.id,
+            name=payload.name,
+            description=payload.description,
+            cadence=payload.cadence.value,
+            points_per_completion=payload.points_per_completion,
+            is_archived=payload.is_archived,
+        )
+        self._session.add(record)
+        self._session.commit()
+        self._session.refresh(record)
+        return _to_schema(record)
 
     def replace(self, habit_id: int, payload: HabitUpdate) -> Habit | None:
         """Replace a habit's fields, keeping its identifier and creation time.
 
         Returns None when no habit has that identifier.
         """
-        with self._lock:
-            existing = self._habits.get(habit_id)
-            if existing is None:
-                return None
+        record = self._find(habit_id)
+        if record is None:
+            return None
 
-            replacement = Habit(
-                id=existing.id,
-                created_at=existing.created_at,
-                **payload.model_dump(),
-            )
-            self._habits[habit_id] = replacement
-            return replacement
+        record.name = payload.name
+        record.description = payload.description
+        record.cadence = payload.cadence.value
+        record.points_per_completion = payload.points_per_completion
+        record.is_archived = payload.is_archived
+        self._session.commit()
+        self._session.refresh(record)
+        return _to_schema(record)
 
     def delete(self, habit_id: int) -> bool:
         """Remove a habit. Returns False when no habit has that identifier."""
-        with self._lock:
-            return self._habits.pop(habit_id, None) is not None
+        record = self._find(habit_id)
+        if record is None:
+            return False
+
+        self._session.delete(record)
+        self._session.commit()
+        return True

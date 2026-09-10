@@ -20,6 +20,12 @@ DEFAULT_APP_PORT = 8000
 DEFAULT_LOG_LEVEL = "INFO"
 DEFAULT_CORS_ALLOWED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
 
+DEFAULT_DB_HOST = "127.0.0.1"
+DEFAULT_DB_PORT = 5432
+DEFAULT_DB_NAME = "osp_habit_tracker"
+DEFAULT_DB_USER = "osp"
+DEFAULT_DB_PASSWORD = ""
+
 SUPPORTED_LOG_LEVELS = ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG")
 
 MIN_PORT = 1
@@ -32,7 +38,11 @@ class ConfigurationError(RuntimeError):
 
 @dataclass(frozen=True)
 class Settings:
-    """Resolved application settings."""
+    """Resolved application settings.
+
+    ``db_password`` is a secret. ``__repr__`` is overridden so that logging or
+    printing a Settings object cannot leak it.
+    """
 
     service_name: str
     app_env: str
@@ -40,6 +50,22 @@ class Settings:
     port: int
     log_level: str
     cors_allowed_origins: tuple[str, ...]
+    db_host: str
+    db_port: int
+    db_name: str
+    db_user: str
+    db_password: str
+
+    def __repr__(self) -> str:
+        """Render without the password, so log output can never expose it."""
+        return (
+            f"Settings(service_name={self.service_name!r}, app_env={self.app_env!r}, "
+            f"host={self.host!r}, port={self.port}, log_level={self.log_level!r}, "
+            f"cors_allowed_origins={self.cors_allowed_origins!r}, "
+            f"db_host={self.db_host!r}, db_port={self.db_port}, "
+            f"db_name={self.db_name!r}, db_user={self.db_user!r}, "
+            "db_password='***')"
+        )
 
 
 def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
@@ -62,6 +88,11 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         cors_allowed_origins=_read_origins(
             source, "CORS_ALLOWED_ORIGINS", DEFAULT_CORS_ALLOWED_ORIGINS
         ),
+        db_host=_read_non_empty(source, "DB_HOST", DEFAULT_DB_HOST),
+        db_port=_read_port(source, "DB_PORT", DEFAULT_DB_PORT),
+        db_name=_read_non_empty(source, "DB_NAME", DEFAULT_DB_NAME),
+        db_user=_read_non_empty(source, "DB_USER", DEFAULT_DB_USER),
+        db_password=source.get("DB_PASSWORD", DEFAULT_DB_PASSWORD),
     )
 
 

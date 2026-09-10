@@ -8,13 +8,19 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from sqlalchemy.exc import SQLAlchemyError
 
 from habit_tracker import habits
 from habit_tracker.config import Settings, load_settings
-from habit_tracker.storage import HabitStore
+from habit_tracker.database import (
+    create_database_engine,
+    create_session_factory,
+    prepare_database,
+)
 
 API_VERSION = "0.1.0"
 
@@ -51,7 +57,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version=API_VERSION,
     )
     application.state.settings = resolved
-    application.state.habit_store = HabitStore()
+
+    engine = create_database_engine(resolved)
+    application.state.database_engine = engine
+    application.state.session_factory = create_session_factory(engine)
+    application.state.database_ready = prepare_database(engine, resolved)
+
+    @application.exception_handler(SQLAlchemyError)
+    async def handle_database_error(
+        request: Request, error: SQLAlchemyError
+    ) -> JSONResponse:
+        """Turn a database failure into 503 rather than an opaque 500.
+
+        The error type is logged but its message is not, because driver errors
+        can quote connection details.
+        """
+        logger.error(
+            "Database error handling %s %s (%s)",
+            request.method,
+            request.url.path,
+            type(error).__name__,
+        )
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": "The service cannot reach its database."},
+        )
 
     if resolved.cors_allowed_origins:
         application.add_middleware(
