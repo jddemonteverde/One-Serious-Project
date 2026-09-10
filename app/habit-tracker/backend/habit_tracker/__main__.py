@@ -1,7 +1,7 @@
-"""Console entry point that serves the API with ``python -m app``.
+"""Console entry point that serves the API with ``python -m habit_tracker``.
 
-The runner is separate from :mod:`app.main` so that starting the server does not
-build a second, discarded application instance: uvicorn imports ``app.main``
+The runner is separate from :mod:`habit_tracker.main` so that starting the server does not
+build a second, discarded application instance: uvicorn imports ``habit_tracker.main``
 itself using the import string below.
 """
 
@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import uvicorn
 
-from app.config import load_settings
+from habit_tracker.config import load_settings
 
-APP_IMPORT_STRING = "app.main:app"
+APP_IMPORT_STRING = "habit_tracker.main:app"
 
 
 def main() -> None:
