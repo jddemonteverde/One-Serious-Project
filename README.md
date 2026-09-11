@@ -19,22 +19,23 @@ The backend serves a habits API with full CRUD and request validation, and
 reads its configuration from environment variables. The frontend is currently a
 shell that displays the backend's service status.
 
-Habits are held in memory only, so they are lost when the service restarts:
-PostgreSQL persistence is the next ticket. Completions, streaks, points, badges,
-health checks, structured logging, metrics, and automated tests are the
-remaining Application MVP tickets, and the frontend has no habit features yet.
-No container, CI pipeline, or platform component is implemented yet.
+Habits are stored in PostgreSQL and survive a restart. Completions, streaks,
+points, badges, database migrations, health checks, structured logging, metrics,
+and automated tests are the remaining Application MVP tickets, and the frontend
+has no habit features yet. No container, CI pipeline, or platform component is
+implemented yet.
 
 ## Technology stack
 
 Implemented:
 
 - Python 3.12 and FastAPI, run locally with Uvicorn
+- PostgreSQL 16, accessed with SQLAlchemy
 - React 19 and Vite 8 with TypeScript, run locally with the Vite dev server
 
 Planned; not yet implemented:
 
-- PostgreSQL and Alembic
+- Alembic migrations
 - Docker, GitHub Actions, and GitHub Container Registry
 - kind, Kubernetes, Helm, and Argo CD
 - Terraform, with AWS as the first cloud target
@@ -105,8 +106,29 @@ hyphen, so the importable package `habit_tracker` lives inside `backend/`. See
 ### Prerequisites
 
 - Python 3.12
+- PostgreSQL 16
 - Node.js 22
 - Make
+
+### Set up the database
+
+Install and start PostgreSQL, then create the role and database the service
+expects:
+
+```sh
+brew install postgresql@16
+brew services start postgresql@16
+export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
+
+createuser --superuser osp
+createdb --owner=osp osp_habit_tracker
+```
+
+The Homebrew formula is keg-only, so its binaries are not on `PATH` by default;
+add the `export` line to your shell profile to keep `psql` available.
+
+The service creates its tables on startup for now. Alembic replaces that with
+versioned migrations in the next ticket.
 
 ### Install the backend
 
@@ -170,6 +192,16 @@ APP_ENV=staging APP_PORT=9001 LOG_LEVEL=DEBUG make run
 ```
 
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated origins permitted to call the API directly. Empty disables cross-origin requests. |
+| `DB_HOST` | `127.0.0.1` | PostgreSQL host. |
+| `DB_PORT` | `5432` | PostgreSQL port. |
+| `DB_NAME` | `osp_habit_tracker` | Database name. |
+| `DB_USER` | `osp` | Database role. |
+| `DB_PASSWORD` | empty | Database password. Empty suits a local trust-authenticated server; **any deployed environment must set it.** |
+
+Database credentials are read from the environment and are never committed. A
+`Settings` object renders its password as `***`, so logging one cannot leak it.
+When the database is unreachable the service still starts and returns `503` from
+endpoints that need it, which keeps an outage distinguishable from a crash.
 
 Database configuration is not part of this milestone yet; it arrives with
 PostgreSQL persistence.
@@ -208,8 +240,8 @@ curl -X POST http://localhost:8000/habits \
   -d '{"name":"Read 20 pages","cadence":"daily","points_per_completion":10}'
 ```
 
-**Habits are stored in memory only.** They are lost when the service restarts.
-PostgreSQL persistence replaces this in the next ticket.
+Habits are stored in PostgreSQL and survive a restart. Every habit belongs to a
+single seeded user; authentication arrives in a later milestone.
 
 ## Frontend development
 

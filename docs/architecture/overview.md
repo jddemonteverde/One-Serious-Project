@@ -10,16 +10,17 @@ about implemented capabilities must be supported by repository evidence.
 ## 2. Current Architecture
 
 The repository is in **v0.1.0 — Application MVP**, with the first Web Frontend
-ticket also delivered. Epic 0 — Bootstrap is complete, and two runtime
-components exist: a FastAPI backend and a React frontend, both run locally by a
-developer. There is no datastore, container, pipeline, or cloud infrastructure
-yet.
+ticket also delivered. Epic 0 — Bootstrap is complete, and three runtime
+components exist: a FastAPI backend, a React frontend, and a PostgreSQL
+database, all run locally by a developer. There is no container, pipeline, or
+cloud infrastructure yet.
 
 ```mermaid
 flowchart TD
   developer["Developer"] -->|make run| backend["FastAPI backend (local process)"]
   developer -->|make frontend-dev| frontend["React frontend (local dev server)"]
   frontend -->|Proxied API requests| backend
+  backend -->|Read and write habits| postgres[("PostgreSQL (local service)")]
   developer --> repository["Git repository"]
   repository -->|Application source| backend
   repository -->|Application source| frontend
@@ -31,8 +32,12 @@ What exists today:
 - A FastAPI backend at `app/habit-tracker/backend/`, whose Python package is
   `habit_tracker`, with a `GET /` endpoint that returns the service name,
   running state, and environment name.
-- A habits API providing full CRUD with request validation, backed by an
-  in-memory store that is lost when the service restarts.
+- A habits API providing full CRUD with request validation, persisted in
+  PostgreSQL through SQLAlchemy, with `users` and `habits` tables and a single
+  seeded user that owns every habit.
+- Database configuration from `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and
+  `DB_PASSWORD`, with a `503` response and a logged, credential-free diagnostic
+  when the database is unreachable.
 - Backend configuration read from `APP_ENV`, `APP_HOST`, `APP_PORT`,
   `LOG_LEVEL`, and `CORS_ALLOWED_ORIGINS`, with pinned runtime dependencies in
   `app/habit-tracker/backend/requirements.txt`.
@@ -55,13 +60,14 @@ What exists today:
   [habit tracker domain](../adr/003-habit-tracker-domain.md), and the
   [frontend service and application layout](../adr/004-frontend-service-and-application-layout.md).
 
-The backend holds no durable state: habits exist only in the running process,
-so a restart loses them. The frontend has no habit features. PostgreSQL
-persistence, migrations, completions, streaks, points, badges, health checks,
-structured logging, metrics, and automated test coverage are the remaining
-Application MVP tickets; the habit and gamification interfaces and the frontend
-test suite are the remaining Web Frontend tickets. Neither component has
-automated tests, and the backend has no linter. Logging currently uses the standard library default format, not the
+Habits now survive a restart, but the schema is still created by the
+application at startup rather than by versioned migrations, and PostgreSQL runs
+as a local service installed by hand rather than as declared infrastructure. The
+frontend has no habit features. Migrations, completions, streaks, points,
+badges, health checks, structured logging, metrics, and automated test coverage
+are the remaining Application MVP tickets; the habit and gamification interfaces
+and the frontend test suite are the remaining Web Frontend tickets. Neither
+component has automated tests, and the backend has no linter. Logging currently uses the standard library default format, not the
 structured format planned for log aggregation. The infrastructure, deployment,
 observability, automation, and test directories contain placeholders.
 `.github/workflows/` also contains only a placeholder; CI jobs have not been
