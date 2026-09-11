@@ -1,4 +1,4 @@
-"""Database engine, session lifecycle, and development-time schema creation."""
+"""Database engine, session lifecycle, and startup readiness check."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from habit_tracker.config import Settings
-from habit_tracker.models import Base, User
+from habit_tracker.models import User
 
 DEFAULT_USER_DISPLAY_NAME = "Local User"
 
@@ -49,17 +49,16 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 
 def prepare_database(engine: Engine, settings: Settings) -> bool:
-    """Create tables and seed the default user, reporting whether it worked.
+    """Check the database is usable and seed the default user.
 
-    Creating the schema here is temporary. Alembic migrations replace it in the
-    next ticket, at which point this function should only verify connectivity.
+    The schema itself is managed by Alembic (``make migrate``), not created
+    here. Seeding the user doubles as the check that the schema is present.
 
     A failure is logged and reported rather than raised: the service must still
     start when the database is down, so that liveness and readiness can be told
     apart once health endpoints exist.
     """
     try:
-        Base.metadata.create_all(engine)
         with Session(engine) as session, session.begin():
             get_default_user(session)
     except OperationalError:
@@ -72,11 +71,12 @@ def prepare_database(engine: Engine, settings: Settings) -> bool:
         )
         return False
     except SQLAlchemyError as error:
-        # Reached the database but could not prepare it: a schema or permission
-        # problem, which needs a different fix from an outage.
+        # Reached the database but could not use it. The usual cause is a
+        # schema that has not been migrated; a permission problem looks the
+        # same from here and needs the same operator attention.
         logger.error(
-            "Database reachable at %s:%s/%s but preparation failed (%s). "
-            "This is a schema or permission problem, not an outage.",
+            "Database reachable at %s:%s/%s but not usable (%s). Run "
+            "'make migrate' to apply the schema, or check the role's permissions.",
             settings.db_host,
             settings.db_port,
             settings.db_name,

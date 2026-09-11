@@ -19,6 +19,9 @@ help:
 		'Available commands:' \
 		'  make install            Create the backend virtual environment and install its dependencies' \
 		'  make run                Run the backend locally using environment configuration' \
+		'  make migrate            Apply database migrations up to the latest revision' \
+		'  make migrate-rollback   Revert the most recent database migration' \
+		'  make migration          Generate a migration from model changes: make migration MESSAGE="..."' \
 		'  make frontend-install   Install frontend dependencies' \
 		'  make frontend-dev       Run the frontend development server' \
 		'  make frontend-build     Build the frontend for production' \
@@ -40,6 +43,24 @@ install: $(VENV_PYTHON)
 run:
 	@test -x $(VENV_PYTHON) || { printf '%s\n' 'Virtual environment not found. Run: make install' >&2; exit 1; }
 	cd $(BACKEND) && .venv/bin/python -m $(PACKAGE)
+
+# Migrations read the same DB_* environment variables as the service, so the
+# same overrides work here: DB_NAME=other make migrate.
+.PHONY: migrate
+migrate:
+	@test -x $(VENV_PYTHON) || { printf '%s\n' 'Virtual environment not found. Run: make install' >&2; exit 1; }
+	cd $(BACKEND) && .venv/bin/alembic upgrade head
+
+.PHONY: migrate-rollback
+migrate-rollback:
+	@test -x $(VENV_PYTHON) || { printf '%s\n' 'Virtual environment not found. Run: make install' >&2; exit 1; }
+	cd $(BACKEND) && .venv/bin/alembic downgrade -1
+
+.PHONY: migration
+migration:
+	@test -x $(VENV_PYTHON) || { printf '%s\n' 'Virtual environment not found. Run: make install' >&2; exit 1; }
+	@test -n "$(MESSAGE)" || { printf '%s\n' 'MESSAGE is required. Run: make migration MESSAGE="describe the change"' >&2; exit 1; }
+	cd $(BACKEND) && .venv/bin/alembic revision --autogenerate -m "$(MESSAGE)"
 
 .PHONY: frontend-install
 frontend-install:
