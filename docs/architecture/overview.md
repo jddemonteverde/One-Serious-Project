@@ -37,14 +37,19 @@ What exists today:
   seeded user that owns every habit.
 - Database configuration from `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and
   `DB_PASSWORD`, with a `503` response and a logged, credential-free diagnostic
-  when the database is unreachable.
+  when the database is unreachable or unmigrated.
+- Version-controlled schema management with Alembic: an initial revision
+  creates the `users` and `habits` tables, the Alembic environment takes its
+  connection from the same `DB_*` settings as the service, and migrations are
+  applied as an explicit step (`make migrate`) rather than at startup.
 - Backend configuration read from `APP_ENV`, `APP_HOST`, `APP_PORT`,
   `LOG_LEVEL`, and `CORS_ALLOWED_ORIGINS`, with pinned runtime dependencies in
   `app/habit-tracker/backend/requirements.txt`.
 - A React and TypeScript frontend at `app/habit-tracker/frontend/` that reads
   and displays the backend's service status, with pinned dependencies and a
   development-server proxy that keeps API calls same-origin.
-- A `Makefile` providing `make help`, `make install`, `make run`, and the
+- A `Makefile` providing `make help`, `make install`, `make run`, the
+  `migrate`, `migrate-rollback`, and `migration` commands, and the
   `frontend-install`, `frontend-dev`, `frontend-build`, and `frontend-lint`
   commands, with an `APP` variable selecting which application under `app/` the
   commands act on.
@@ -60,13 +65,13 @@ What exists today:
   [habit tracker domain](../adr/003-habit-tracker-domain.md), and the
   [frontend service and application layout](../adr/004-frontend-service-and-application-layout.md).
 
-Habits now survive a restart, but the schema is still created by the
-application at startup rather than by versioned migrations, and PostgreSQL runs
-as a local service installed by hand rather than as declared infrastructure. The
-frontend has no habit features. Migrations, completions, streaks, points,
-badges, health checks, structured logging, metrics, and automated test coverage
-are the remaining Application MVP tickets; the habit and gamification interfaces
-and the frontend test suite are the remaining Web Frontend tickets. Neither
+Habits survive a restart and the schema is versioned, but PostgreSQL runs as
+a local service installed by hand rather than as declared infrastructure, and
+migrations are run by a developer rather than by a pipeline or deployment
+step. The frontend has no habit features. Completions, streaks, points, badges,
+health checks, structured logging, metrics, and automated test coverage are the
+remaining Application MVP tickets; the habit and gamification interfaces and
+the frontend test suite are the remaining Web Frontend tickets. Neither
 component has automated tests, and the backend has no linter. Logging currently uses the standard library default format, not the
 structured format planned for log aggregation. The infrastructure, deployment,
 observability, automation, and test directories contain placeholders.
