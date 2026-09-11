@@ -19,23 +19,22 @@ The backend serves a habits API with full CRUD and request validation, and
 reads its configuration from environment variables. The frontend is currently a
 shell that displays the backend's service status.
 
-Habits are stored in PostgreSQL and survive a restart. Completions, streaks,
-points, badges, database migrations, health checks, structured logging, metrics,
-and automated tests are the remaining Application MVP tickets, and the frontend
-has no habit features yet. No container, CI pipeline, or platform component is
-implemented yet.
+Habits are stored in PostgreSQL and survive a restart, and the schema is
+managed with Alembic migrations. Completions, streaks, points, badges, health
+checks, structured logging, metrics, and automated tests are the remaining
+Application MVP tickets, and the frontend has no habit features yet. No
+container, CI pipeline, or platform component is implemented yet.
 
 ## Technology stack
 
 Implemented:
 
 - Python 3.12 and FastAPI, run locally with Uvicorn
-- PostgreSQL 16, accessed with SQLAlchemy
+- PostgreSQL 16, accessed with SQLAlchemy and migrated with Alembic
 - React 19 and Vite 8 with TypeScript, run locally with the Vite dev server
 
 Planned; not yet implemented:
 
-- Alembic migrations
 - Docker, GitHub Actions, and GitHub Container Registry
 - kind, Kubernetes, Helm, and Argo CD
 - Terraform, with AWS as the first cloud target
@@ -61,7 +60,12 @@ one-serious-project/
 │       │   ├── habit_tracker/    Python package
 │       │   │   ├── __main__.py   Local server entry point
 │       │   │   ├── main.py       FastAPI application and routes
-│       │   │   └── config.py     Environment-driven settings
+│       │   │   ├── config.py     Environment-driven settings
+│       │   │   ├── database.py   Engine, sessions, and startup check
+│       │   │   └── models.py     SQLAlchemy models
+│       │   ├── migrations/       Alembic environment and revisions
+│       │   │   └── versions/
+│       │   ├── alembic.ini       Alembic configuration (no credentials)
 │       │   └── requirements.txt  Pinned runtime dependencies
 │       └── frontend/             React application
 │           ├── src/
@@ -127,8 +131,8 @@ createdb --owner=osp osp_habit_tracker
 The Homebrew formula is keg-only, so its binaries are not on `PATH` by default;
 add the `export` line to your shell profile to keep `psql` available.
 
-The service creates its tables on startup for now. Alembic replaces that with
-versioned migrations in the next ticket.
+This creates an empty database. The schema is applied with migrations after
+the backend is installed; see [Apply database migrations](#apply-database-migrations).
 
 ### Install the backend
 
@@ -146,6 +150,31 @@ if `python3.12` is installed elsewhere:
 ```sh
 make install PYTHON=/path/to/python3.12
 ```
+
+### Apply database migrations
+
+The schema is version controlled with Alembic. Bring a new or out-of-date
+database up to the current revision with:
+
+```sh
+make migrate
+```
+
+Migrations read the same `DB_*` variables as the service (see
+[Backend configuration](#backend-configuration)), so the same overrides apply.
+The service does not create or migrate tables itself: if you start it against
+an unmigrated database it logs an error naming this command and returns `503`
+from the habits endpoints until the schema is applied.
+
+If your database was created by an earlier version of the service, which built
+the tables at startup, the tables already match the initial revision. Record
+that without touching them:
+
+```sh
+cd app/habit-tracker/backend && .venv/bin/alembic stamp head
+```
+
+See [Database migrations](#database-migrations) for the full workflow.
 
 ### Run the backend
 
@@ -184,13 +213,6 @@ to a default.
 | `APP_HOST` | `127.0.0.1` | Address the server binds to. Container and cluster runtimes will set `0.0.0.0`. |
 | `APP_PORT` | `8000` | TCP port the server listens on. Must be between 1 and 65535. |
 | `LOG_LEVEL` | `INFO` | Root log level. One of `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG`. |
-
-Example:
-
-```sh
-APP_ENV=staging APP_PORT=9001 LOG_LEVEL=DEBUG make run
-```
-
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated origins permitted to call the API directly. Empty disables cross-origin requests. |
 | `DB_HOST` | `127.0.0.1` | PostgreSQL host. |
 | `DB_PORT` | `5432` | PostgreSQL port. |
@@ -198,13 +220,48 @@ APP_ENV=staging APP_PORT=9001 LOG_LEVEL=DEBUG make run
 | `DB_USER` | `osp` | Database role. |
 | `DB_PASSWORD` | empty | Database password. Empty suits a local trust-authenticated server; **any deployed environment must set it.** |
 
+Example:
+
+```sh
+APP_ENV=staging APP_PORT=9001 LOG_LEVEL=DEBUG make run
+```
+
 Database credentials are read from the environment and are never committed. A
 `Settings` object renders its password as `***`, so logging one cannot leak it.
 When the database is unreachable the service still starts and returns `503` from
 endpoints that need it, which keeps an outage distinguishable from a crash.
 
-Database configuration is not part of this milestone yet; it arrives with
-PostgreSQL persistence.
+### Database migrations
+
+Schema changes are made through Alembic revisions in
+`app/habit-tracker/backend/migrations/versions/`, never by hand-run SQL. The
+Alembic environment builds its connection from the `DB_*` variables through the
+service's own settings, so `alembic.ini` holds no URL or credentials.
+
+| Command | Purpose |
+| --- | --- |
+| `make migrate` | Apply every pending revision (`alembic upgrade head`). |
+| `make migrate-rollback` | Revert the most recent revision (`alembic downgrade -1`). |
+| `make migration MESSAGE="..."` | Generate a revision from model changes (`alembic revision --autogenerate`). |
+
+To change the schema:
+
+1. Edit the models in `habit_tracker/models.py`.
+2. Run `make migration MESSAGE="add completions table"` against a database
+   that is at the current head. Autogenerate diffs the models against the live
+   schema, so an out-of-date database produces a wrong revision.
+3. Review the generated file. Autogenerate misses some changes, such as
+   renames, and never writes data migrations.
+4. Run `make migrate`, then `make migrate-rollback` and `make migrate` again,
+   to prove the revision applies and reverses cleanly.
+5. Commit the revision with the model change.
+
+Reverting drops whatever the revision created, including its data. Run
+`make migrate-rollback` against a shared database only when you mean to.
+
+For other Alembic commands, run the CLI from the backend directory:
+`.venv/bin/alembic history`, `.venv/bin/alembic current`, and
+`.venv/bin/alembic upgrade head --sql` to print the SQL without applying it.
 
 ### Habits API
 
