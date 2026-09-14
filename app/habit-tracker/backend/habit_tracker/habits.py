@@ -2,31 +2,20 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, status
 
+from habit_tracker.dependencies import SessionDependency, TodayDependency
 from habit_tracker.schemas import Habit, HabitCreate, HabitUpdate
 from habit_tracker.storage import HabitRepository
 
 router = APIRouter(prefix="/habits", tags=["habits"])
 
 
-def get_session(request: Request) -> Iterator[Session]:
-    """Yield a database session scoped to one request."""
-    session_factory = request.app.state.session_factory
-    with session_factory() as session:
-        yield session
-
-
-SessionDependency = Annotated[Session, Depends(get_session)]
-
-
-def get_repository(session: SessionDependency) -> HabitRepository:
+def get_repository(session: SessionDependency, today: TodayDependency) -> HabitRepository:
     """Build the habit repository for this request."""
-    return HabitRepository(session)
+    return HabitRepository(session, today)
 
 
 RepositoryDependency = Annotated[HabitRepository, Depends(get_repository)]

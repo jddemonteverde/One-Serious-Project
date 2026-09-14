@@ -35,16 +35,23 @@ What exists today:
 - A habits API providing full CRUD with request validation, persisted in
   PostgreSQL through SQLAlchemy, with `users` and `habits` tables and a single
   seeded user that owns every habit.
+- A completions API that logs, lists, and removes a habit's completions, with
+  a `habit_completions` table unique on habit and day. Completions are the
+  source of truth: the `current_streak` and `longest_streak` aggregates on each
+  habit are rebuilt from them inside the same transaction as every change, and
+  the arithmetic lives in a pure module so the aggregates can be recomputed
+  from the records alone.
 - Database configuration from `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and
   `DB_PASSWORD`, with a `503` response and a logged, credential-free diagnostic
   when the database is unreachable or unmigrated.
-- Version-controlled schema management with Alembic: an initial revision
-  creates the `users` and `habits` tables, the Alembic environment takes its
-  connection from the same `DB_*` settings as the service, and migrations are
-  applied as an explicit step (`make migrate`) rather than at startup.
+- Version-controlled schema management with Alembic: revisions create the
+  `users`, `habits`, and `habit_completions` tables, the Alembic environment
+  takes its connection from the same `DB_*` settings as the service, and
+  migrations are applied as an explicit step (`make migrate`) rather than at
+  startup.
 - Backend configuration read from `APP_ENV`, `APP_HOST`, `APP_PORT`,
-  `LOG_LEVEL`, and `CORS_ALLOWED_ORIGINS`, with pinned runtime dependencies in
-  `app/habit-tracker/backend/requirements.txt`.
+  `LOG_LEVEL`, `CORS_ALLOWED_ORIGINS`, and `APP_TIMEZONE`, with pinned
+  runtime dependencies in `app/habit-tracker/backend/requirements.txt`.
 - A React and TypeScript frontend at `app/habit-tracker/frontend/` that reads
   and displays the backend's service status, with pinned dependencies and a
   development-server proxy that keeps API calls same-origin.
@@ -68,10 +75,13 @@ What exists today:
 Habits survive a restart and the schema is versioned, but PostgreSQL runs as
 a local service installed by hand rather than as declared infrastructure, and
 migrations are run by a developer rather than by a pipeline or deployment
-step. The frontend has no habit features. Completions, streaks, points, badges,
-health checks, structured logging, metrics, and automated test coverage are the
-remaining Application MVP tickets; the habit and gamification interfaces and
-the frontend test suite are the remaining Web Frontend tickets. Neither
+step. The streak aggregates are committed in the same transaction as the
+completion change, so a partial write cannot separate them, but nothing yet
+recomputes them after a direct data change; recomputation tooling is a
+deferred decision in ADR-003. The frontend has no habit features. Points totals,
+badges, health checks, structured logging, metrics, and automated test
+coverage are the remaining Application MVP tickets; the habit and gamification
+interfaces and the frontend test suite are the remaining Web Frontend tickets. Neither
 component has automated tests, and the backend has no linter. Logging currently uses the standard library default format, not the
 structured format planned for log aggregation. The infrastructure, deployment,
 observability, automation, and test directories contain placeholders.
