@@ -8,9 +8,18 @@ than an enum type alteration.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from habit_tracker.schemas import MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH
@@ -49,7 +58,13 @@ class User(Base):
 
 
 class Habit(Base):
-    """A recurring activity worth points when completed."""
+    """A recurring activity worth points when completed.
+
+    The streak columns are aggregates maintained on every completion change and
+    recomputable from the habit's completions; see :mod:`habit_tracker.streaks`.
+    ``last_completed_on`` lets a read tell whether the stored current streak has
+    lapsed without loading the completions.
+    """
 
     __tablename__ = "habits"
 
@@ -66,8 +81,42 @@ class Habit(Base):
     is_archived: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"
     )
+    current_streak: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    longest_streak: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    last_completed_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utc_now, server_default=func.now()
     )
 
     owner: Mapped[User] = relationship(back_populates="habits")
+    completions: Mapped[list[HabitCompletion]] = relationship(
+        back_populates="habit", cascade="all, delete-orphan"
+    )
+
+
+class HabitCompletion(Base):
+    """A record that a habit was done on a given day.
+
+    Completions are the source of truth for streaks and points. One row per
+    habit per day is enforced by the database, so logging a day twice is a
+    conflict rather than a duplicate. ``points_awarded`` is copied from the
+    habit at the time, so editing a habit's points later does not rewrite
+    history.
+    """
+
+    __tablename__ = "habit_completions"
+    __table_args__ = (
+        UniqueConstraint("habit_id", "completed_on", name="uq_habit_completions_habit_day"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    habit_id: Mapped[int] = mapped_column(
+        ForeignKey("habits.id", ondelete="CASCADE"), index=True
+    )
+    completed_on: Mapped[date] = mapped_column(Date)
+    points_awarded: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utc_now, server_default=func.now()
+    )
+
+    habit: Mapped[Habit] = relationship(back_populates="completions")

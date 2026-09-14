@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 
-from habit_tracker import habits
+from habit_tracker import completions, habits
 from habit_tracker.config import Settings, load_settings
 from habit_tracker.database import (
     create_database_engine,
@@ -102,6 +102,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     application.include_router(habits.router)
+    application.include_router(completions.router)
 
     logger.info(
         "Application created service=%s environment=%s",

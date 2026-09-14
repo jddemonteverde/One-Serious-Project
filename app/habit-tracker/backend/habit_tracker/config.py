@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 SERVICE_NAME = "one-serious-project-api"
 
@@ -19,6 +20,7 @@ DEFAULT_APP_HOST = "127.0.0.1"
 DEFAULT_APP_PORT = 8000
 DEFAULT_LOG_LEVEL = "INFO"
 DEFAULT_CORS_ALLOWED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
+DEFAULT_APP_TIMEZONE = "UTC"
 
 DEFAULT_DB_HOST = "127.0.0.1"
 DEFAULT_DB_PORT = 5432
@@ -50,6 +52,7 @@ class Settings:
     port: int
     log_level: str
     cors_allowed_origins: tuple[str, ...]
+    timezone: ZoneInfo
     db_host: str
     db_port: int
     db_name: str
@@ -62,6 +65,7 @@ class Settings:
             f"Settings(service_name={self.service_name!r}, app_env={self.app_env!r}, "
             f"host={self.host!r}, port={self.port}, log_level={self.log_level!r}, "
             f"cors_allowed_origins={self.cors_allowed_origins!r}, "
+            f"timezone={self.timezone.key!r}, "
             f"db_host={self.db_host!r}, db_port={self.db_port}, "
             f"db_name={self.db_name!r}, db_user={self.db_user!r}, "
             "db_password='***')"
@@ -88,6 +92,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         cors_allowed_origins=_read_origins(
             source, "CORS_ALLOWED_ORIGINS", DEFAULT_CORS_ALLOWED_ORIGINS
         ),
+        timezone=_read_timezone(source, "APP_TIMEZONE", DEFAULT_APP_TIMEZONE),
         db_host=_read_non_empty(source, "DB_HOST", DEFAULT_DB_HOST),
         db_port=_read_port(source, "DB_PORT", DEFAULT_DB_PORT),
         db_name=_read_non_empty(source, "DB_NAME", DEFAULT_DB_NAME),
@@ -123,6 +128,23 @@ def _read_log_level(source: Mapping[str, str], name: str, default: str) -> str:
         supported = ", ".join(SUPPORTED_LOG_LEVELS)
         raise ConfigurationError(f"{name} must be one of: {supported}. Got {level!r}.")
     return level
+
+
+def _read_timezone(source: Mapping[str, str], name: str, default: str) -> ZoneInfo:
+    """Parse an IANA time zone name.
+
+    The zone decides what "today" means when a completion is logged without a
+    date and when a date is judged to be in the future, so it should match the
+    person using the tracker rather than the server.
+    """
+    key = _read_non_empty(source, name, default)
+    try:
+        return ZoneInfo(key)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise ConfigurationError(
+            f"{name} must be an IANA time zone name such as 'UTC' or "
+            f"'Asia/Singapore', got {key!r}."
+        ) from None
 
 
 def _read_origins(

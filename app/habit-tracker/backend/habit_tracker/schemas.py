@@ -1,8 +1,8 @@
-"""Request and response models for the habits API."""
+"""Request and response models for the habits and completions API."""
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator
@@ -65,7 +65,28 @@ class HabitUpdate(HabitFields):
 
 
 class Habit(HabitFields):
-    """A stored habit."""
+    """A stored habit, with its streaks derived from its completions."""
 
     id: int
+    current_streak: int
+    longest_streak: int
+    created_at: datetime
+
+
+class CompletionCreate(BaseModel):
+    """Payload for logging a completion.
+
+    ``completed_on`` defaults to today in the configured time zone. Future
+    dates are rejected by the service, which knows what today is.
+    """
+
+    completed_on: date | None = None
+
+
+class Completion(BaseModel):
+    """A stored completion."""
+
+    habit_id: int
+    completed_on: date
+    points_awarded: int
     created_at: datetime
