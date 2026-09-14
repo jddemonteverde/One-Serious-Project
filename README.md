@@ -19,8 +19,9 @@ The backend serves a habits API with full CRUD and request validation, and
 reads its configuration from environment variables. The frontend is currently a
 shell that displays the backend's service status.
 
-Habits are stored in PostgreSQL and survive a restart, and the schema is
-managed with Alembic migrations. Completions, streaks, points, badges, health
+Habits and their completions are stored in PostgreSQL and survive a restart,
+the schema is managed with Alembic migrations, and each habit carries current
+and longest streaks derived from its completions. Points totals, badges, health
 checks, structured logging, metrics, and automated tests are the remaining
 Application MVP tickets, and the frontend has no habit features yet. No
 container, CI pipeline, or platform component is implemented yet.
@@ -59,7 +60,11 @@ one-serious-project/
 │       ├── backend/              FastAPI service
 │       │   ├── habit_tracker/    Python package
 │       │   │   ├── __main__.py   Local server entry point
-│       │   │   ├── main.py       FastAPI application and routes
+│       │   │   ├── main.py       FastAPI application
+│       │   │   ├── habits.py     Habits routes
+│       │   │   ├── completions.py Completion routes
+│       │   │   ├── storage.py    Repositories
+│       │   │   ├── streaks.py    Streak arithmetic
 │       │   │   ├── config.py     Environment-driven settings
 │       │   │   ├── database.py   Engine, sessions, and startup check
 │       │   │   └── models.py     SQLAlchemy models
@@ -214,6 +219,7 @@ to a default.
 | `APP_PORT` | `8000` | TCP port the server listens on. Must be between 1 and 65535. |
 | `LOG_LEVEL` | `INFO` | Root log level. One of `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG`. |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated origins permitted to call the API directly. Empty disables cross-origin requests. |
+| `APP_TIMEZONE` | `UTC` | IANA time zone that decides what "today" is when logging completions and judging streaks. Set it to the user's zone, for example `Asia/Singapore`. |
 | `DB_HOST` | `127.0.0.1` | PostgreSQL host. |
 | `DB_PORT` | `5432` | PostgreSQL port. |
 | `DB_NAME` | `osp_habit_tracker` | Database name. |
@@ -266,7 +272,7 @@ For other Alembic commands, run the CLI from the backend directory:
 ### Habits API
 
 A habit is something to do on a recurring cadence, worth points when completed.
-Completions, streaks, points, and badges arrive in later tickets.
+Points totals and badges arrive in later tickets.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -299,6 +305,54 @@ curl -X POST http://localhost:8000/habits \
 
 Habits are stored in PostgreSQL and survive a restart. Every habit belongs to a
 single seeded user; authentication arrives in a later milestone.
+
+The response also carries `current_streak` and `longest_streak`, which the
+server maintains from the habit's completions and which clients cannot set.
+Deleting a habit deletes its completions.
+
+### Completions API
+
+A completion records that a habit was done on a given day. Completions are the
+source of truth: streaks are recomputed from them after every change.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/habits/{id}/completions` | Log a completion. Returns `201`. |
+| `GET` | `/habits/{id}/completions` | List the habit's completions, oldest first. |
+| `DELETE` | `/habits/{id}/completions/{date}` | Remove the completion for a day. Returns `204`. |
+
+The request body for `POST` is optional. `completed_on` (`YYYY-MM-DD`) defaults
+to today in `APP_TIMEZONE`. Each completion stores `points_awarded`, copied
+from the habit's `points_per_completion` at the time, so changing a habit's
+points later does not rewrite history.
+
+| Outcome | Status |
+| --- | --- |
+| Unknown habit, or no completion on that day for `DELETE` | `404` |
+| Same habit and day already logged | `409` |
+| `completed_on` after today | `422` |
+
+```sh
+curl -X POST http://localhost:8000/habits/1/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"completed_on":"2026-09-14"}'
+```
+
+#### Streak semantics
+
+A streak is a run of consecutive periods that each contain at least one
+completion. For a `daily` habit the period is the calendar day; for a `weekly`
+habit it is the ISO week (Monday to Sunday), so completing it on any day of the
+week counts for that week and a second completion in the same week does not
+extend the streak.
+
+- `current_streak` is the run ending at the most recent completion. It stays
+  alive through the current period, since today is not missed until it is
+  over, and resets to `0` once a whole period passes without a completion.
+- `longest_streak` is the longest run ever reached and does not decrease when
+  the current streak resets.
+- Both are rebuilt from the full completion history whenever a completion is
+  logged or removed, and when a habit's cadence changes.
 
 ## Frontend development
 
